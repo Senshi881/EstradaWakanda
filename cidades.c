@@ -1,112 +1,94 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
 #include "cidades.h"
 
-void inserirCidade(Cidade **lista, const char *nome, double distancia){
+void inserirCidade(Cidade **lista, const char *nome, int posicao) {
     Cidade *novaCidade = (Cidade *)malloc(sizeof(Cidade));
-    if(!novaCidade){
+    if (!novaCidade) {
         perror("\n*ERRO EM ALOCAR MEMORIA*");
         return;
     }
-    strcpy(novaCidade->nome, nome);
-    novaCidade->distancia = distancia;
+    strcpy(novaCidade->Nome, nome);
+    novaCidade->Posicao = posicao;
     novaCidade->prox = *lista;
     *lista = novaCidade;
 }
 
-Cidade *carregarCidades(const char *nomeArquivo, double *comprimentoEstrada){
+Estrada *getEstrada(const char *nomeArquivo) {
     FILE *arquivo = fopen(nomeArquivo, "r");
-    if(arquivo == NULL){
+    if (arquivo == NULL) {
         perror("\n*ERRO EM ABRIR ARQUIVO*");
         return NULL;
     }
 
-    int numCidades;
-    fscanf(arquivo, "%lf %d", comprimentoEstrada, &numCidades);
+    Estrada *estrada = (Estrada *)malloc(sizeof(Estrada));
+    if (!estrada) {
+        perror("\n*ERRO EM ALOCAR MEMORIA*");
+        fclose(arquivo);
+        return NULL;
+    }
 
-    Cidade *lista = NULL;
-    char nome[50];
-    double distancia;
-    for(int i = 0; i < numCidades; i++){
-        fscanf(arquivo, "%lf", &distancia);
-        fgetc(arquivo);
-        fgets(nome, sizeof(nome), arquivo);
-        nome[strcspn(nome, "\n")] = '\0';
-        inserirCidade(&lista, nome, distancia);
+    fscanf(arquivo, "%d %d", &estrada->N, &estrada->T);
+
+    estrada->C = (Cidade *)malloc(estrada->N * sizeof(Cidade));
+    if (!estrada->C) {
+        perror("\n*ERRO EM ALOCAR MEMORIA*");
+        fclose(arquivo);
+        free(estrada);
+        return NULL;
+    }
+
+    for (int i = 0; i < estrada->N; i++) {
+        fscanf(arquivo, "%s %d", estrada->C[i].Nome, &estrada->C[i].Posicao);
     }
 
     fclose(arquivo);
-    return lista;
+    return estrada;
 }
 
-double calcularMenorVizinhanca(const char *nomeArquivo, double comprimentoEstrada){
-    Cidade *cidades = carregarCidades(nomeArquivo, &comprimentoEstrada);
-    if(cidades == NULL){
+double calcularMenorVizinhanca(const char *nomeArquivo) {
+    Estrada *estrada = getEstrada(nomeArquivo);
+    if (estrada == NULL) {
         return -1.0;
     }
 
-    Cidade *atual = cidades;
-    double menorVizinhanca = comprimentoEstrada;
+    double menorVizinhanca = estrada->T;
 
-    while(atual){
-        Cidade *proxima = atual->prox;
-        double vizinhanca;
-        if (proxima){
-            vizinhanca = (proxima->distancia - atual->distancia) / 2.0;
-        } else{
-            vizinhanca = comprimentoEstrada - atual->distancia;
-        }
-        if(vizinhanca < menorVizinhanca){
+    for (int i = 0; i < estrada->N - 1; i++) {
+        double vizinhanca = (estrada->C[i + 1].Posicao - estrada->C[i].Posicao) / 2.0;
+        if (vizinhanca < menorVizinhanca) {
             menorVizinhanca = vizinhanca;
         }
-        atual = atual->prox;
     }
 
-    while(cidades){
-        Cidade *tmp = cidades;
-        cidades = cidades->prox;
-        free(tmp);
-    }
+    free(estrada->C);
+    free(estrada);
 
     return menorVizinhanca;
 }
 
-char *cidadeMenorVizinhanca(const char *nomeArquivo, double comprimentoEstrada){
-    Cidade *cidades = carregarCidades(nomeArquivo, &comprimentoEstrada);
-    if(cidades == NULL){
+char *cidadeMenorVizinhanca(const char *nomeArquivo) {
+    Estrada *estrada = getEstrada(nomeArquivo);
+    if (estrada == NULL) {
         return NULL;
     }
 
-    Cidade *atual = cidades;
-    Cidade *cidadeMenor = NULL;
-    double menorVizinhanca = comprimentoEstrada;
+    int indiceMenorVizinhanca = 0;
+    double menorVizinhanca = estrada->T;
 
-    while(atual){
-        Cidade *proxima = atual->prox;
-        double vizinhanca;
-        if(proxima){
-            vizinhanca = (proxima->distancia - atual->distancia) / 2.0;
-        }else{
-            vizinhanca = comprimentoEstrada - atual->distancia;
-        }
-        if(vizinhanca < menorVizinhanca){
+    for (int i = 0; i < estrada->N - 1; i++) {
+        double vizinhanca = (estrada->C[i + 1].Posicao - estrada->C[i].Posicao) / 2.0;
+        if (vizinhanca < menorVizinhanca) {
             menorVizinhanca = vizinhanca;
-            cidadeMenor = atual;
+            indiceMenorVizinhanca = i;
         }
-        atual = atual->prox;
     }
 
-    char *nomeCidade = NULL;
-    if(cidadeMenor){
-        nomeCidade = strdup(cidadeMenor->nome);
-    }
-    while(cidades){
-        Cidade *tmp = cidades;
-        cidades = cidades->prox;
-        free(tmp);
-    }
+    char *nomeCidade = strdup(estrada->C[indiceMenorVizinhanca].Nome);
+
+    free(estrada->C);
+    free(estrada);
 
     return nomeCidade;
 }
